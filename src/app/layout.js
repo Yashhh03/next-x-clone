@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import News from "@/components/News";
+import Search from "@/components/Search";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +20,8 @@ export default function RootLayout({ children }) {
             <Sidebar />
           </div>
           <div>{children}</div>
-          <div>
+          <div className="lg:flex-col p-3 h-screen border-l hidden lg:flex w-[24rem]">
+            <Search />
             <News />
           </div>
         </div>
