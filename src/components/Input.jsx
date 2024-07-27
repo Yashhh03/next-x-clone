@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { HiOutlinePhotograph } from "react-icons/hi";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { app } from "../firebase";
 import {
@@ -11,13 +11,25 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
+import {
+  getFirestore,
+  addDoc,
+  collection,
+  serverTimestamp,
+} from "firebase/firestore";
 
 export default function Input() {
   const { data: session } = useSession();
   const imagePickRef = useRef(null);
   const [imageFileUrl, setImageFileUrl] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
   const [imageFileUploading, setImageFileUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [postContent, setPostContent] = useState("");
+  const [text, setText] = useState("");
+  const [postLoading, setPostLoading] = useState(false);
+
+  const db = getFirestore(app);
 
   const addImageToPost = (e) => {
     const file = e.target.files[0];
@@ -27,13 +39,7 @@ export default function Input() {
     }
   };
 
-  useEffect(() => {
-    if (selectedFile) {
-      uploadImageToStorage();
-    }
-  }, [selectedFile]);
-
-  const uploadImageToStorage = () => {
+  const uploadImageToStorage = useCallback(() => {
     setImageFileUploading(true);
     const storage = getStorage(app);
     const fileName = new Date().getTime() + "-" + selectedFile.name;
@@ -60,6 +66,52 @@ export default function Input() {
         });
       }
     );
+  }, [selectedFile]);
+
+  useEffect(() => {
+    if (selectedFile) {
+      uploadImageToStorage();
+    }
+  }, [selectedFile, uploadImageToStorage]);
+
+  const handlePost = async () => {
+    if (!postContent.trim()) {
+      alert("Please enter some content.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log("Posting:", { content: postContent, imageUrl: imageFileUrl });
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      setPostContent("");
+      setImageFileUrl(null);
+      setSelectedFile(null);
+    } catch (error) {
+      console.error("Failed to post:", error);
+      alert("Failed to post. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setPostLoading(true);
+    const docRef = await addDoc(collection(db, "posts"), {
+      uid: session.user.uid,
+      name: session.user.name,
+      username: session.user.username,
+      text,
+      profileImg: session.user.image,
+      timestamp: serverTimestamp(),
+      image: imageFileUrl,
+    });
+    setLoading(false);
+    setText("");
+    setImageFileUrl(null);
+    setSelectedFile(null);
   };
 
   if (!session) return null;
@@ -79,6 +131,8 @@ export default function Input() {
           placeholder="What's happening"
           cols="30"
           rows="2"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
         ></textarea>
         {selectedFile && (
           <Image
@@ -86,7 +140,9 @@ export default function Input() {
             alt="post-image"
             width={500}
             height={250}
-            className="w-full max-h-[250px] object-cover cursor-pointer"
+            className={`w-full max-h-[250px] object-cover cursor-pointer ${
+              imageFileUploading ? "animate-pulse" : ""
+            }`}
           />
         )}
         <div className="flex items-center justify-between pt-2.5">
@@ -101,7 +157,11 @@ export default function Input() {
             accept="image/*"
             onChange={addImageToPost}
           />
-          <button className="bg-blue-400 text-white px-4 py-1.5 rounded-full font-bold shadow-md hover:brightness-95 disabled:opacity-50">
+          <button
+            disabled={(text.trim() === "" && postLoading) || imageFileUploading}
+            className="bg-blue-400 text-white px-4 py-1.5 rounded-full font-bold shadow-md hover:brightness-95 disabled:opacity-50"
+            onClick={handleSubmit}
+          >
             Post
           </button>
         </div>
