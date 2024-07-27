@@ -1,10 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { HiDotsHorizontal } from "react-icons/hi";
+import Icons from "./Icons";
 
 export default function Post({ post, id }) {
   return (
-    <div className="flex p-3 border-b border-gray-200">
+    <div className="flex p-3 border-b border-gray-200 hover:bg-gray-50">
       <Image
         src={post?.profileImg}
         alt="user-image"
@@ -34,6 +35,7 @@ export default function Post({ post, id }) {
             />
           </Link>
         )}
+        <Icons />
       </div>
     </div>
   );
