@@ -7,8 +7,17 @@ import { HiX } from "react-icons/hi";
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { app } from "../firebase.js";
-import { doc, getFirestore, onSnapshot } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getFirestore,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp,
+} from "firebase/firestore";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function CommentModal() {
   const [open, setOpen] = useRecoilState(modalState);
@@ -16,6 +25,7 @@ export default function CommentModal() {
   const [input, setInput] = useState("");
   const [post, setPost] = useState({});
   const { data: session } = useSession();
+  const router = useRouter();
 
   const db = getFirestore(app);
 
@@ -35,11 +45,27 @@ export default function CommentModal() {
           console.log(error);
         }
       );
-      return () => unsubscribe;
+      return () => unsubscribe();
     }
   }, [postId, db]);
 
-  const sendComment = async () => {};
+  const sendComment = async () => {
+    addDoc(collection(db, "posts", postId, "comments"), {
+      name: session.user.name,
+      userImg: session.user.image,
+      username: session.user.username,
+      comment: input,
+      timestamp: serverTimestamp(),
+    })
+      .then(() => {
+        setInput("");
+        setOpen(false);
+        router.push(`/posts/${postId}`);
+      })
+      .catch((error) => {
+        console.error("Error adding document: ", error);
+      });
+  };
 
   return (
     <div>
@@ -61,7 +87,7 @@ export default function CommentModal() {
               <span className="w-0.5 h-full z-[-1] absolute left-8 top-11 bg-gray-300" />
               <Image
                 src={post?.profileImg}
-                alt="user-image"
+                alt="post-user-image"
                 width={44}
                 height={44}
                 className="h-11 w-11 rounded-full mr-4"
@@ -97,7 +123,7 @@ export default function CommentModal() {
                 <div className="flex items-center justify-end pt-2.5">
                   <button
                     className="bg-blue-400 text-white px-4 py-1 rounded-full font-bold shadow-md hover:brightness-95 disabled:opacity-50"
-                    disabled={!input.trim() === ""}
+                    disabled={input.trim() === ""}
                     onClick={sendComment}
                   >
                     Reply
